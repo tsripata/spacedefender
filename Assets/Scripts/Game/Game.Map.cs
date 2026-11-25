@@ -30,10 +30,14 @@ namespace SpaceDefender
 
         void SetupMaterials()
         {
-            // A primitive gets the render pipeline's default material, which is always included in builds.
-            var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            baseMat = probe.GetComponent<Renderer>().sharedMaterial;
-            Destroy(probe);
+            // URP Lit material asset (created by the editor bridge) so the shader ships with the build.
+            baseMat = Resources.Load<Material>("SD_BaseLit");
+            if (baseMat == null)
+            {
+                var probe = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                baseMat = probe.GetComponent<Renderer>().sharedMaterial;
+                Destroy(probe);
+            }
         }
 
         public Material Mat(Color c)

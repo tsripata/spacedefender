@@ -38,7 +38,23 @@ public static class ClaudeBridge
         Application.logMessageReceived += OnLog;
         // keep play mode (and the web build) running when the window isn't focused
         if (!PlayerSettings.runInBackground) PlayerSettings.runInBackground = true;
+        EditorApplication.delayCall += EnsureAssets;
         WriteStatus("loaded");
+    }
+
+    /// Runtime-created materials need a real URP Lit material in the build (primitives get the
+    /// built-in pipeline material in players, which renders magenta under URP).
+    static void EnsureAssets()
+    {
+        const string path = "Assets/Resources/SD_BaseLit.mat";
+        if (AssetDatabase.LoadAssetAtPath<Material>(path) != null) return;
+        var sh = Shader.Find("Universal Render Pipeline/Lit");
+        if (sh == null) { WriteStatus("asset-error", "URP Lit shader not found"); return; }
+        Directory.CreateDirectory(Path.Combine(Root, "Assets/Resources"));
+        var m = new Material(sh);
+        m.SetFloat("_Smoothness", 0.15f);
+        AssetDatabase.CreateAsset(m, path);
+        AssetDatabase.SaveAssets();
     }
 
     static void OnCompileStart(object _)
@@ -163,6 +179,8 @@ public static class ClaudeBridge
             PlayerSettings.WebGL.dataCaching = true;
             PlayerSettings.runInBackground = true;
             PlayerSettings.SetManagedStrippingLevel(NamedBuildTarget.WebGL, ManagedStrippingLevel.Low);
+            PlayerSettings.stripEngineCode = false; // colliders are only added at runtime by CreatePrimitive
+            EnsureAssets();
 
             var scenes = EditorBuildSettings.scenes.Where(s => s.enabled).Select(s => s.path).ToArray();
             if (scenes.Length == 0) scenes = new[] { "Assets/Scenes/SampleScene.unity" };

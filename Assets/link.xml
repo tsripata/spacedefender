@@ -1,0 +1,4 @@
+<linker>
+  <!-- Colliders are only created at runtime via GameObject.CreatePrimitive; keep them in web builds. -->
+  <assembly fullname="UnityEngine.PhysicsModule" preserve="all" />
+</linker>

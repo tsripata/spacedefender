@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>Space Defender</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: #0a0d17; overflow: hidden; font-family: system-ui, -apple-system, Segoe UI, sans-serif; }
+    #unity-canvas { width: 100vw; height: 100vh; display: block; background: #0a0d17; outline: none; }
+    #loader { position: fixed; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; color: #cfe; gap: 14px; }
+    #loader h1 { margin: 0; letter-spacing: 4px; font-size: 28px; color: #fff; }
+    #loader p { margin: 0; color: #8aa; font-size: 14px; }
+    #bar { width: 260px; height: 8px; background: #1d2333; border-radius: 4px; overflow: hidden; }
+    #fill { width: 0; height: 100%; background: linear-gradient(90deg, #7b3fe4, #3fd6a8); transition: width .2s; }
+    #err { color: #f88; max-width: 480px; text-align: center; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <canvas id="unity-canvas" tabindex="-1"></canvas>
+  <div id="loader">
+    <h1>SPACE DEFENDER</h1>
+    <div id="bar"><div id="fill"></div></div>
+    <p id="status">Loading… (about 16 MB)</p>
+    <div id="err"></div>
+  </div>
+  <script>
+    var buildUrl = "Build";
+    var config = {
+      dataUrl: buildUrl + "/WebBuild.data.unityweb",
+      frameworkUrl: buildUrl + "/WebBuild.framework.js.unityweb",
+      codeUrl: buildUrl + "/WebBuild.wasm.unityweb",
+      streamingAssetsUrl: "StreamingAssets",
+      companyName: "tsripata",
+      productName: "Space Defender",
+      productVersion: "0.1",
+    };
+    var canvas = document.querySelector("#unity-canvas");
+    var script = document.createElement("script");
+    script.src = buildUrl + "/WebBuild.loader.js";
+    script.onload = function () {
+      createUnityInstance(canvas, config, function (p) {
+        document.querySelector("#fill").style.width = (100 * p) + "%";
+      }).then(function () {
+        document.querySelector("#loader").style.display = "none";
+        canvas.focus();
+      }).catch(function (m) {
+        document.querySelector("#status").textContent = "Could not start the game.";
+        document.querySelector("#err").textContent = m;
+      });
+    };
+    document.body.appendChild(script);
+  </script>
+</body>
+</html>
