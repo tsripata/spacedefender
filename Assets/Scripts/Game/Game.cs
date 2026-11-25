@@ -17,6 +17,11 @@ namespace SpaceDefender
 
         static void OnLoaded(Scene s, LoadSceneMode m) => Ensure();
 
+        // Referenced so the web build keeps these engine classes (CreatePrimitive adds them at runtime).
+        [UnityEngine.Scripting.Preserve]
+        static readonly System.Type[] KeepEngineClasses =
+            { typeof(CapsuleCollider), typeof(SphereCollider), typeof(BoxCollider), typeof(MeshCollider) };
+
         static void Ensure()
         {
             if (Object.FindAnyObjectByType<Game>() == null)
