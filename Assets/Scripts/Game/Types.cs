@@ -39,7 +39,10 @@ namespace SpaceDefender
         public Color baseColor;
         public GameObject root;
         public readonly List<Renderer> renderers = new List<Renderer>();
-        public readonly List<Color> colors = new List<Color>();
+        public readonly List<MatSpec> specs = new List<MatSpec>();
+        public bool ghost;                 // see-through because it blocks the camera
+        public Vector2Int ladderDir = new Vector2Int(1, 0);
+        public int palette;                // facade colour/variant choice
 
         public Vector2Int P => new Vector2Int(x, z);
         public int Height => type == TileType.Building ? Mathf.CeilToInt(hp / 2f) : 0;

@@ -15,6 +15,10 @@ namespace SpaceDefender
         readonly List<Rect> uiRects = new List<Rect>();
         readonly List<Rect> uiRectsLast = new List<Rect>();
 
+        bool topView;
+        float shake;
+        readonly HashSet<Tile> ghosts = new HashSet<Tile>();
+
         void SetupCamera()
         {
             cam = Camera.main;
@@ -25,33 +29,74 @@ namespace SpaceDefender
                 cam = g.AddComponent<Camera>();
             }
             cam.clearFlags = CameraClearFlags.SolidColor;
-            cam.backgroundColor = new Color(0.04f, 0.05f, 0.09f);
-            cam.fieldOfView = 45;
+            cam.fieldOfView = 40;
             cam.nearClipPlane = 0.1f;
             cam.farClipPlane = 200;
             camTarget = new Vector3(10.5f, 0, 6f);
-            RenderSettings.ambientLight = new Color(0.45f, 0.45f, 0.5f);
-            var sun = FindAnyObjectByType<Light>();
-            if (sun != null && sun.type == LightType.Directional)
-            {
-                sun.transform.rotation = Quaternion.Euler(50, -30, 0);
-                sun.shadows = LightShadows.Soft;
-                sun.intensity = 1.2f;
-            }
+            // the scene's directional light is the sun (portal/brood lights are point lights)
+            foreach (var l in FindObjectsByType<Light>(FindObjectsSortMode.None))
+                if (l.type == LightType.Directional) { sunLight = l; break; }
+            SetupLighting();
         }
+
+        Light sunLight;
 
         public void FocusOn(Vector2Int p)
         {
             camTarget = new Vector3(p.x, 0, p.y);
         }
 
+        public void RotateView(int dir) => targetYaw += 90 * dir;
+        public void ToggleTopView() => topView = !topView;
+        public void Shake(float amount) => shake = Mathf.Max(shake, amount);
+
         void LateUpdate()
         {
             if (cam == null) return;
-            yaw = Mathf.LerpAngle(yaw, targetYaw, Time.deltaTime * 10f);
+            float dt = Time.unscaledDeltaTime;
+            yaw = Mathf.LerpAngle(yaw, targetYaw, dt * 9f);
+            pitch = Mathf.Lerp(pitch, topView ? 82f : 52f, dt * 6f);
             var rot = Quaternion.Euler(pitch, yaw, 0);
             cam.transform.rotation = rot;
-            cam.transform.position = camTarget + Vector3.up * 1f - rot * Vector3.forward * zoom;
+            var pos = camTarget + Vector3.up * 1f - rot * Vector3.forward * zoom;
+            if (shake > 0)
+            {
+                pos += Random.insideUnitSphere * shake * 0.35f;
+                shake = Mathf.Max(0, shake - dt * 1.8f);
+            }
+            cam.transform.position = pos;
+            UpdateGhosts();
+        }
+
+        /// Buildings between the camera and the selected soldier (or a moving unit) turn see-through.
+        void UpdateGhosts()
+        {
+            if (tiles == null) return;
+            var now = new HashSet<Tile>();
+            var focus = new List<Vector3>();
+            if (selected != null && selected.alive && selected.go != null) focus.Add(selected.go.transform.position + Vector3.up * 0.5f);
+            if (hover.HasValue && phase == Phase.Player) focus.Add(TopOf(hover.Value) + Vector3.up * 0.3f);
+            var camPos = cam.transform.position;
+            foreach (var f in focus)
+            {
+                var d = f - camPos;
+                float len = d.magnitude;
+                int steps = Mathf.CeilToInt(len / 0.25f);
+                for (int i = 1; i < steps; i++)
+                {
+                    var p = camPos + d * (i / (float)steps);
+                    int tx = Mathf.RoundToInt(p.x), tz = Mathf.RoundToInt(p.z);
+                    if (!In(tx, tz)) continue;
+                    var t = tiles[tx, tz];
+                    if (t.type != TileType.Building) continue;
+                    if (Mathf.Abs(tx - f.x) < 0.5f && Mathf.Abs(tz - f.z) < 0.5f) continue;
+                    if (p.y < t.TopY + 0.25f) now.Add(t);
+                }
+            }
+            foreach (var t in ghosts) if (!now.Contains(t)) { t.ghost = false; if (t.root != null) ApplyTileFog(t); }
+            foreach (var t in now) if (!ghosts.Contains(t)) { t.ghost = true; if (t.root != null) ApplyTileFog(t); }
+            ghosts.Clear();
+            foreach (var t in now) ghosts.Add(t);
         }
 
         bool PointerOverUI()
@@ -95,8 +140,9 @@ namespace SpaceDefender
                 if (kb.sKey.isPressed || kb.downArrowKey.isPressed) camTarget -= fwd * sp;
                 if (kb.aKey.isPressed || kb.leftArrowKey.isPressed) camTarget -= right * sp;
                 if (kb.dKey.isPressed || kb.rightArrowKey.isPressed) camTarget += right * sp;
-                if (kb.qKey.wasPressedThisFrame) targetYaw += 90;
-                if (kb.eKey.wasPressedThisFrame) targetYaw -= 90;
+                if (kb.qKey.wasPressedThisFrame) RotateView(1);
+                if (kb.eKey.wasPressedThisFrame) RotateView(-1);
+                if (kb.tKey.wasPressedThisFrame) ToggleTopView();
             }
             if (ms != null)
             {
@@ -124,6 +170,39 @@ namespace SpaceDefender
 
         Vector2Int? lastHover;
 
+        /// Path preview: white dots, cyan steps (one level), yellow ladder climbs with a glowing ladder column.
+        void DrawPath(List<Vector2Int> path)
+        {
+            for (int i = 1; i < path.Count; i++)
+            {
+                var a = T(path[i - 1]); var b = T(path[i]);
+                int d = b.Height - a.Height;
+                bool last = i == path.Count - 1;
+                if (System.Math.Abs(d) >= 2)
+                {
+                    var lt = a.Height > b.Height ? a : b;
+                    LadderGlow(lt, new Color(1f, 0.85f, 0.1f), 1.6f);
+                    Marker(path[i], new Color(1f, 0.85f, 0.1f), last ? 0.7f : 0.38f, 0.05f);
+                }
+                else if (d != 0) Marker(path[i], new Color(0.3f, 1f, 1f), last ? 0.7f : 0.34f, 0.05f);
+                else Marker(path[i], Color.white, last ? 0.6f : 0.22f, 0.05f);
+                // connector dot between tiles
+                var mid = (TopOf(path[i - 1]) + TopOf(path[i])) * 0.5f;
+                if (d == 0) MarkerAt(mid + Vector3.up * 0.05f, new Vector3(0.12f, 0.02f, 0.12f), Color.white);
+            }
+        }
+
+        /// Highlights a building's ladder with a glowing column along its wall.
+        void LadderGlow(Tile t, Color c, float strength)
+        {
+            var d = t.ladderDir;
+            float H = t.TopY;
+            var pos = new Vector3(t.x + d.x * 0.56f, H / 2f + 0.1f, t.z + d.y * 0.56f);
+            var sc = d.x != 0 ? new Vector3(0.05f, H + 0.2f, 0.36f) : new Vector3(0.36f, H + 0.2f, 0.05f);
+            MarkerAt(pos, sc, c * strength);
+            Marker(t.P, c, 0.95f, 0.04f);
+        }
+
         void UpdateHover()
         {
             UpdateHoverRay();
@@ -131,7 +210,7 @@ namespace SpaceDefender
             if (hover != lastHover)
             {
                 lastHover = hover;
-                if (phase == Phase.Player && !busy && (mode == Mode.Grenade || (mode == Mode.Special && selected != null && selected.kind == UnitKind.Heavy)))
+                if (phase == Phase.Player && !busy && (mode == Mode.Move || mode == Mode.Grenade || (mode == Mode.Special && selected != null && selected.kind == UnitKind.Heavy)))
                     RefreshHighlights();
             }
         }
@@ -291,8 +370,17 @@ namespace SpaceDefender
         {
             u.ap -= 1; u.special--;
             var b = new Beacon { p = p, turnsLeft = 3 };
-            var g = Box(world, TopOf(p) + Vector3.up * 0.4f, new Vector3(0.12f, 0.4f, 0.12f), new Color(0.3f, 0.9f, 1f), false, PrimitiveType.Cylinder);
-            Box(g.transform, new Vector3(0, 1.1f, 0), new Vector3(2.2f, 0.4f, 2.2f), new Color(0.6f, 1f, 1f), false, PrimitiveType.Sphere);
+            var g = new GameObject("Beacon");
+            g.transform.SetParent(world, false);
+            g.transform.position = TopOf(p);
+            Part(g.transform, PrimitiveType.Cylinder, new Vector3(0, 0.05f, 0), new Vector3(0.3f, 0.05f, 0.3f), MatSpec.Of(new Color(0.2f, 0.22f, 0.25f), 0.5f));
+            Part(g.transform, PrimitiveType.Cylinder, new Vector3(0, 0.4f, 0), new Vector3(0.05f, 0.35f, 0.05f), MatSpec.Of(new Color(0.6f, 0.62f, 0.65f), 0.6f));
+            var head = Part(g.transform, PrimitiveType.Sphere, new Vector3(0, 0.8f, 0), Vector3.one * 0.14f, MatSpec.Glow(new Color(0.3f, 0.9f, 1f), 4f), default, false);
+            head.AddComponent<Idle>().pulse = 0.25f;
+            var dish = Part(g.transform, PrimitiveType.Cylinder, new Vector3(0, 0.65f, 0), new Vector3(0.3f, 0.01f, 0.3f), MatSpec.Glow(new Color(0.3f, 0.9f, 1f), 1.5f), new Vector3(20, 0, 0), false);
+            dish.AddComponent<Spin>().speed = new Vector3(0, 120, 0);
+            var bl = g.AddComponent<Light>();
+            bl.type = LightType.Point; bl.color = new Color(0.3f, 0.9f, 1f); bl.range = 3f; bl.intensity = 2f; bl.shadows = LightShadows.None;
             b.go = g;
             beacons.Add(b);
             Log("Sensor beacon deployed (3 turns).");
@@ -304,12 +392,12 @@ namespace SpaceDefender
         {
             var g = GameObject.CreatePrimitive(PrimitiveType.Sphere);
             DestroyImmediate(g.GetComponent<Collider>());
-            g.GetComponent<Renderer>().sharedMaterial = Mat(c);
-            g.transform.localScale = Vector3.one * 0.2f;
+            g.GetComponent<Renderer>().sharedMaterial = Mat(new MatSpec { color = c, emission = new Color(1f, 0.4f, 0.1f) * 1.5f, smooth = 0.5f });
+            g.transform.localScale = Vector3.one * 0.16f;
             float t = 0, h = 1.5f + Vector3.Distance(a, b) * 0.2f;
             while (t < 1)
             {
-                t += Dt / 0.5f;
+                t += Dt / 0.55f;
                 var p = Vector3.Lerp(a, b, t);
                 p.y += Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI) * h;
                 g.transform.position = p;
@@ -373,8 +461,20 @@ namespace SpaceDefender
                 case Mode.Move:
                     reach = Paths(selected, selected.move);
                     foreach (var kv in reach.cost)
-                        if (kv.Key != selected.P && UnitAt(kv.Key) == null)
-                            Marker(kv.Key, T(kv.Key).Height > 0 ? new Color(0.3f, 0.75f, 1f) : new Color(0.2f, 0.55f, 0.85f), 0.8f, 0.02f);
+                    {
+                        if (kv.Key == selected.P || UnitAt(kv.Key) != null) continue;
+                        var tt = T(kv.Key);
+                        var c = tt.Height > 0 ? new Color(0.35f, 0.8f, 1f) : new Color(0.2f, 0.5f, 0.9f);
+                        Marker(kv.Key, c, 0.78f, 0.02f);
+                    }
+                    // ladders you can reach: yellow frame on the tile
+                    foreach (var kv in reach.cost)
+                    {
+                        var tt = T(kv.Key);
+                        if (!tt.ladder || tt.type != TileType.Building) continue;
+                        LadderGlow(tt, new Color(1f, 0.8f, 0.15f), 0.6f);
+                    }
+                    if (hover.HasValue && reach.cost.ContainsKey(hover.Value) && hover.Value != selected.P) DrawPath(reach.PathTo(hover.Value));
                     break;
                 case Mode.Shoot:
                     foreach (var a in units)

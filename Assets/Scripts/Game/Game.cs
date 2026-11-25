@@ -109,7 +109,7 @@ namespace SpaceDefender
             if (selected == null || !selected.alive) selected = FirstReady();
             mode = Mode.Move;
             RefreshHighlights();
-            Log($"— Turn {turn}/{K.MaxTurns}: your move —");
+            Log($"-- Turn {turn}/{K.MaxTurns}: your move --");
         }
 
         public void EndTurn()

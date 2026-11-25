@@ -7,10 +7,10 @@ namespace SpaceDefender
     {
         float GuiScale => Mathf.Max(0.6f, Screen.height / 720f);
         GUIStyle box, label, small, title, button, center, worldLabel;
-        Texture2D panelTex, barBg, barFg, barRed;
+        Texture2D panelTex, barBg, barFg, barRed, barEmpty;
         bool showHelp;
 
-        static Texture2D Tex(Color c)
+        static Texture2D SolidTex(Color c)
         {
             var t = new Texture2D(1, 1);
             t.SetPixel(0, 0, c);
@@ -21,10 +21,11 @@ namespace SpaceDefender
         void InitStyles()
         {
             if (box != null) return;
-            panelTex = Tex(new Color(0.05f, 0.07f, 0.12f, 0.86f));
-            barBg = Tex(new Color(0.2f, 0.2f, 0.25f, 1));
-            barFg = Tex(new Color(0.3f, 0.85f, 0.45f, 1));
-            barRed = Tex(new Color(0.9f, 0.3f, 0.25f, 1));
+            panelTex = SolidTex(new Color(0.05f, 0.07f, 0.12f, 0.86f));
+            barBg = SolidTex(new Color(0.2f, 0.2f, 0.25f, 1));
+            barFg = SolidTex(new Color(0.3f, 0.85f, 0.45f, 1));
+            barRed = SolidTex(new Color(0.9f, 0.3f, 0.25f, 1));
+            barEmpty = SolidTex(new Color(0.12f, 0.12f, 0.15f, 1));
             box = new GUIStyle(GUI.skin.box) { padding = new RectOffset(10, 10, 8, 8) };
             box.normal.background = panelTex;
             label = new GUIStyle(GUI.skin.label) { fontSize = 14, wordWrap = true, richText = true };
@@ -58,7 +59,7 @@ namespace SpaceDefender
             // ---- top bar ----
             var top = Panel(new Rect(10, 10, 360, 86));
             GUI.Label(new Rect(top.x + 10, top.y + 6, 340, 24),
-                $"<b>SPACE DEFENDER</b>   Turn <b>{Mathf.Min(turn, K.MaxTurns)}/{K.MaxTurns}</b>   {(phase == Phase.Alien ? "<color=#ff7070>Aliens moving…</color>" : phase == Phase.Player ? "<color=#8fd>Your move</color>" : "")}", label);
+                $"<b>SPACE DEFENDER</b>   Turn <b>{Mathf.Min(turn, K.MaxTurns)}/{K.MaxTurns}</b>   {(phase == Phase.Alien ? "<color=#ff7070>Aliens moving...</color>" : phase == Phase.Player ? "<color=#8fd>Your move</color>" : "")}", label);
             float pct = IntegrityPct();
             GUI.Label(new Rect(top.x + 10, top.y + 32, 140, 20), "City power grid", small);
             GUI.DrawTexture(new Rect(top.x + 120, top.y + 36, 220, 12), barBg);
@@ -87,6 +88,15 @@ namespace SpaceDefender
             // ---- squad roster ----
             DrawRoster(H);
 
+            // ---- camera buttons ----
+            {
+                float cx = W - 190, cy = H - 116;
+                if (Btn(new Rect(cx, cy, 56, 38), "<b><<</b>")) RotateView(1);
+                if (Btn(new Rect(cx + 62, cy, 56, 38), topView ? "<b>3D</b>" : "<b>Top</b>")) ToggleTopView();
+                if (Btn(new Rect(cx + 124, cy, 56, 38), "<b>>></b>")) RotateView(-1);
+                GUI.Label(new Rect(cx, cy - 18, 180, 18), "<color=#9ab>Rotate (Q/E) · Top view (T)</color>", small);
+            }
+
             // ---- end turn ----
             if (phase == Phase.Player)
             {
@@ -107,13 +117,13 @@ namespace SpaceDefender
             GUI.Label(new Rect(r.x + 20, r.y + 14, 560, 34), "SPACE DEFENDER", title);
             GUI.Label(new Rect(r.x + 20, r.y + 52, 560, 340),
                 "Aliens are pouring through portals in the north of the city. Hold out for <b>12 turns</b> and keep the city's power grid above <b>50%</b>.\n\n" +
-                "• Each soldier has <b>2 actions</b>: move + move, or move + shoot. Shooting or throwing ends that soldier's turn.\n" +
-                "• Every shot shows a <b>hit %</b>: closer is better, <b>high ground</b> gives up to +20%, <b>cover</b> (walls −40%, cars/crates −20%) protects targets.\n" +
-                "• Climb buildings on <color=#f2c21a>yellow ladders</color>, or step up one level at a time. Rooftops see further.\n" +
-                "• <b>Fog of war</b>: you only see what your squad (or a Scout beacon) can see.\n" +
-                "• Visible aliens <b>telegraph</b> their attacks: <color=#f33>red tiles</color> = attack target, <color=#8f3>green area</color> = acid grenade. Move out of the way!\n" +
-                "• Grenades and rockets blow up cover, cars (chain reactions!) and even building floors.\n\n" +
-                "<b>Controls:</b> click a soldier, click a blue tile to move · 1 Shoot · 2 Grenade · 3 Special · Tab next soldier · Space end turn · WASD / right-drag pan · Q/E rotate · scroll zoom",
+                "- Each soldier has <b>2 actions</b>: move + move, or move + shoot. Shooting or throwing ends that soldier's turn.\n" +
+                "- Every shot shows a <b>hit %</b>: closer is better, <b>high ground</b> gives up to +20%, <b>cover</b> (walls -40%, cars/crates -20%) protects targets.\n" +
+                "- Climb buildings on <color=#f2c21a>yellow ladders</color>, or step up one level at a time. Rooftops see further.\n" +
+                "- <b>Fog of war</b>: you only see what your squad (or a Scout beacon) can see.\n" +
+                "- Visible aliens <b>telegraph</b> their attacks: <color=#f33>red tiles</color> = attack target, <color=#8f3>green area</color> = acid grenade. Move out of the way!\n" +
+                "- Grenades and rockets blow up cover, cars (chain reactions!) and even building floors.\n\n" +
+                "<b>Controls:</b> click a soldier, click a blue tile to move · 1 Shoot · 2 Grenade · 3 Special · Tab next soldier · Space end turn · WASD / right-drag pan · Q/E or the << >> buttons rotate 90° · T top view · scroll zoom. Buildings blocking your soldier turn see-through.",
                 label);
             var b = new Rect(r.x + 200, r.y + 400, 200, 44); uiRects.Add(b);
             if (GUI.Button(b, "<b>Defend the city</b>", button)) BeginPlay();
@@ -123,7 +133,7 @@ namespace SpaceDefender
         {
             var r = Panel(new Rect(W - 370, 198, 360, 230));
             GUI.Label(new Rect(r.x + 10, r.y + 6, 340, 220),
-                "<b>Controls</b>\nLeft click: select / move / target\n1 Shoot · 2 Grenade · 3 Special · Esc cancel\nTab: next soldier · Space: end turn\nWASD / arrows / right-drag: pan\nQ / E: rotate · Scroll: zoom\n\n<b>Map colours</b>\nBlue tiles: where you can move\n<color=#f33>Red</color>: alien attack target  <color=#8f3>Green</color>: acid blast\n<color=#c3e>Purple</color>: alien destination / portal opening",
+                "<b>Controls</b>\nLeft click: select / move / target\n1 Shoot · 2 Grenade · 3 Special · Esc cancel\nTab: next soldier · Space: end turn\nWASD / arrows / right-drag: pan\nQ / E or << >>: rotate 90° · T: top view\nScroll: zoom\n\n<b>Map colours</b>\nBlue tiles: where you can move\n<color=#fd3>Yellow</color>: ladders / ladder climbs on your path\n<color=#f33>Red</color>: alien attack target  <color=#8f3>Green</color>: acid blast\n<color=#c3e>Purple</color>: alien destination / portal opening",
                 small);
         }
 
@@ -139,13 +149,13 @@ namespace SpaceDefender
             float bx = r.x + 12, by = r.y + 58, bw = 140, bh = 46;
             bool can = u.ap > 0 && !busy;
             GUI.enabled = can;
-            if (Btn(new Rect(bx, by, bw, bh), $"{(mode == Mode.Shoot ? "<b>▶ </b>" : "")}1 · Shoot")) SetMode(Mode.Shoot);
+            if (Btn(new Rect(bx, by, bw, bh), $"{(mode == Mode.Shoot ? "<b>> </b>" : "")}1 · Shoot")) SetMode(Mode.Shoot);
             GUI.enabled = can && u.grenades > 0;
-            if (Btn(new Rect(bx + 146, by, bw, bh), $"{(mode == Mode.Grenade ? "<b>▶ </b>" : "")}2 · Grenade ({u.grenades})")) SetMode(Mode.Grenade);
+            if (Btn(new Rect(bx + 146, by, bw, bh), $"{(mode == Mode.Grenade ? "<b>> </b>" : "")}2 · Grenade ({u.grenades})")) SetMode(Mode.Grenade);
             var sp = u.SpecialName;
             GUI.enabled = can && sp != null && u.special > 0;
-            string spLabel = sp == null ? "3 · —" : u.kind == UnitKind.Sniper ? $"3 · {sp}" : $"3 · {sp} ({u.special})";
-            if (Btn(new Rect(bx + 292, by, bw + 10, bh), $"{(mode == Mode.Special ? "<b>▶ </b>" : "")}{spLabel}")) SetMode(Mode.Special);
+            string spLabel = sp == null ? "3 · -" : u.kind == UnitKind.Sniper ? $"3 · {sp}" : $"3 · {sp} ({u.special})";
+            if (Btn(new Rect(bx + 292, by, bw + 10, bh), $"{(mode == Mode.Special ? "<b>> </b>" : "")}{spLabel}")) SetMode(Mode.Special);
             GUI.enabled = !busy;
             if (Btn(new Rect(bx + 448, by, 128, bh), "Tab · Next")) NextUnit();
             GUI.enabled = true;
@@ -163,16 +173,31 @@ namespace SpaceDefender
             foreach (var u in units)
             {
                 if (!u.Human) continue;
-                var r = new Rect(10, y, 200, 30);
+                var r = new Rect(10, y, 210, 34);
                 uiRects.Add(r);
-                string st = u.alive ? $"{u.name}  {new string('■', u.hp)}<color=#555>{new string('■', Mathf.Max(0, u.maxHp - u.hp))}</color>  {(u.ap > 0 ? $"<color=#8fd>{u.ap}AP</color>" : "<color=#777>done</color>")}" : $"<color=#777>{u.name} — down</color>";
-                if (GUI.Button(r, (selected == u ? "<b>▶</b> " : "") + st, button) && u.alive && phase == Phase.Player && !busy)
+                string st = u.alive ? $"{(selected == u ? "<b>> </b>" : "")}{u.name}" : $"<color=#777>{u.name} - down</color>";
+                if (GUI.Button(r, "", button) && u.alive && phase == Phase.Player && !busy)
                 {
                     Select(u);
                     FocusOn(u.P);
                 }
-                y += 34;
+                GUI.Label(new Rect(r.x + 8, r.y + 2, 120, 18), $"<color=#{ColorUtility.ToHtmlStringRGB(UnitColor(u.kind))}>{st}</color>", small);
+                if (u.alive)
+                {
+                    HpBar(new Rect(r.x + 8, r.y + 21, 110, 7), u.hp, u.maxHp, true);
+                    GUI.Label(new Rect(r.x + 140, r.y + 6, 70, 20), u.ap > 0 ? $"<color=#8fd>{u.ap} AP</color>" : "<color=#777>done</color>", small);
+                }
+                y += 38;
             }
+        }
+
+        void HpBar(Rect r, int hp, int max, bool human)
+        {
+            if (max <= 0) return;
+            GUI.DrawTexture(new Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2), barBg);
+            float w = (r.width - (max - 1) * 2f) / max;
+            for (int i = 0; i < max; i++)
+                GUI.DrawTexture(new Rect(r.x + i * (w + 2), r.y, w, r.height), i < hp ? (human ? barFg : barRed) : barEmpty);
         }
 
         void DrawTooltip(float W, float H)
@@ -214,7 +239,19 @@ namespace SpaceDefender
                 else if (mode == Mode.Special && selected.kind == UnitKind.Scout)
                     sb.Append("\n<b>Sensor beacon</b>: reveals radius 5 for 3 turns");
                 else if (mode == Mode.Move && reach != null && reach.cost.TryGetValue(p, out var c) && p != selected.P)
+                {
                     sb.Append($"\nMove cost {c}/{selected.move}");
+                    var path = reach.PathTo(p);
+                    int ladders = 0, steps = 0;
+                    for (int i = 1; i < path.Count; i++)
+                    {
+                        int d = System.Math.Abs(T(path[i]).Height - T(path[i - 1]).Height);
+                        if (d >= 2) ladders++; else if (d == 1) steps++;
+                    }
+                    if (ladders > 0) sb.Append($"\n<color=#fd3>Climbs a ladder</color> to level {T(p).Height}");
+                    else if (steps > 0) sb.Append($"\n<color=#7ff>Steps up/down {steps} level(s)</color>");
+                    if (T(p).Height >= 2) sb.Append("\n<color=#8fd>High ground: +hit chance, +2 sight</color>");
+                }
             }
 
             var m = MouseGui();
@@ -247,12 +284,11 @@ namespace SpaceDefender
             {
                 if (!u.alive || u.go == null) continue;
                 if (!u.Human && !Visible(u.P)) continue;
-                var sp = cam.WorldToScreenPoint(u.go.transform.position + Vector3.up * 1.25f);
+                var sp = cam.WorldToScreenPoint(u.go.transform.position + Vector3.up * 1.15f);
                 if (sp.z < 0) continue;
                 var gp = new Vector2(sp.x / s, (Screen.height - sp.y) / s);
-                string hp = new string('■', u.hp);
-                var c = u.Human ? "#7cf" : "#f6a";
-                GUI.Label(new Rect(gp.x - 60, gp.y - 10, 120, 20), $"<color={c}>{hp}</color>", worldLabel);
+                float bw = Mathf.Min(60, u.maxHp * 9);
+                HpBar(new Rect(gp.x - bw / 2, gp.y - 4, bw, 6), u.hp, u.maxHp, u.Human);
             }
             foreach (var pg in pings)
             {

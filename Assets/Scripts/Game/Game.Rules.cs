@@ -310,38 +310,111 @@ namespace SpaceDefender
                 yield return Explode(e, 1.2f, 2, 1, new Color(1f, 0.55f, 0.1f));
         }
 
+        /// Fireball, smoke, debris, light flash and camera shake. Runs the fireball inline, the rest in the background.
         IEnumerator Flash(Vector3 pos, float radius, Color col)
         {
-            var g = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            DestroyImmediate(g.GetComponent<Collider>());
-            g.GetComponent<Renderer>().sharedMaterial = Mat(col);
-            g.transform.position = pos;
+            Shake(0.25f + radius * 0.12f);
+            var light = new GameObject("Blast").AddComponent<Light>();
+            light.type = LightType.Point; light.color = col; light.range = radius * 4f; light.intensity = 8f; light.shadows = LightShadows.None;
+            light.transform.position = pos + Vector3.up * 0.5f;
+
+            var core = Part(null, PrimitiveType.Sphere, pos, Vector3.one * 0.3f, MatSpec.Glow(col, 5f), default, false);
+            var inner = Part(null, PrimitiveType.Sphere, pos, Vector3.one * 0.2f, MatSpec.Glow(new Color(1f, 0.95f, 0.7f), 7f), default, false);
+            Run(Debris(pos, col));
+            Run(Smoke(pos, radius));
             float t = 0;
             while (t < 1)
             {
-                t += Dt / 0.35f;
-                float s = Mathf.Lerp(0.3f, radius * 2.2f, t);
-                g.transform.localScale = new Vector3(s, s * 0.6f, s);
+                t += Dt / 0.32f;
+                float k = Mathf.Clamp01(t);
+                float s = Mathf.Lerp(0.3f, radius * 2.1f, Mathf.Sqrt(k));
+                core.transform.localScale = new Vector3(s, s * 0.75f, s);
+                inner.transform.localScale = Vector3.one * s * 0.55f * (1 - k * 0.6f);
+                light.intensity = Mathf.Lerp(8f, 0f, k);
                 yield return null;
             }
-            Destroy(g);
+            Destroy(core); Destroy(inner); Destroy(light.gameObject);
+        }
+
+        IEnumerator Smoke(Vector3 pos, float radius)
+        {
+            var puffs = new List<(GameObject g, Vector3 v, float s)>();
+            int n = 7;
+            for (int i = 0; i < n; i++)
+            {
+                var off = new Vector3(Rf() - 0.5f, Rf() * 0.4f, Rf() - 0.5f) * radius;
+                var g = Part(null, PrimitiveType.Sphere, pos + off, Vector3.one * 0.3f, MatSpec.Glass(new Color(0.2f, 0.19f, 0.18f), 0.6f), default, false);
+                puffs.Add((g, new Vector3(Rf() - 0.5f, 1.2f + Rf(), Rf() - 0.5f) * 0.6f, 0.5f + Rf() * 0.6f));
+            }
+            float t = 0;
+            while (t < 1)
+            {
+                t += Dt / 1.6f;
+                float a = Mathf.Clamp01(1 - t) * 0.6f;
+                var mat = Mat(MatSpec.Glass(new Color(0.22f, 0.21f, 0.2f), Mathf.Round(a * 10) / 10f));
+                foreach (var p in puffs)
+                {
+                    if (p.g == null) continue;
+                    p.g.transform.position += p.v * Dt;
+                    p.g.transform.localScale = Vector3.one * (p.s + t * radius * 1.1f);
+                    p.g.GetComponent<Renderer>().sharedMaterial = mat;
+                }
+                yield return null;
+            }
+            foreach (var p in puffs) if (p.g != null) Destroy(p.g);
+        }
+
+        IEnumerator Debris(Vector3 pos, Color col)
+        {
+            var bits = new List<(GameObject g, Vector3 v, Vector3 spin)>();
+            for (int i = 0; i < 10; i++)
+            {
+                var spec = i < 4 ? MatSpec.Glow(col, 3f) : MatSpec.Tex(Tex.Rubble(), Color.white);
+                var g = Part(null, PrimitiveType.Cube, pos, Vector3.one * (0.05f + Rf() * 0.08f), spec, default, false);
+                bits.Add((g, new Vector3(Rf() - 0.5f, 1f + Rf() * 1.2f, Rf() - 0.5f) * 4.5f, new Vector3(Rf(), Rf(), Rf()) * 720));
+            }
+            float t = 0;
+            while (t < 0.9f)
+            {
+                t += Dt;
+                for (int i = 0; i < bits.Count; i++)
+                {
+                    var b = bits[i];
+                    if (b.g == null) continue;
+                    b.v += Vector3.down * 12f * Dt;
+                    b.g.transform.position += b.v * Dt;
+                    b.g.transform.Rotate(b.spin * Dt);
+                    bits[i] = b;
+                }
+                yield return null;
+            }
+            foreach (var b in bits) if (b.g != null) Destroy(b.g);
         }
 
         public IEnumerator Tracer(Vector3 a, Vector3 b, Color c)
         {
-            var g = GameObject.CreatePrimitive(PrimitiveType.Cube);
-            DestroyImmediate(g.GetComponent<Collider>());
-            g.GetComponent<Renderer>().sharedMaterial = Mat(c);
-            g.transform.localScale = new Vector3(0.08f, 0.08f, 0.35f);
+            // muzzle flash
+            var dir = (b - a).normalized;
+            var flash = Part(null, PrimitiveType.Sphere, a + dir * 0.35f, Vector3.one * 0.18f, MatSpec.Glow(c, 6f), default, false);
+            var fl = flash.AddComponent<Light>();
+            fl.type = LightType.Point; fl.color = c; fl.range = 2.5f; fl.intensity = 4f; fl.shadows = LightShadows.None;
+
+            var g = Part(null, PrimitiveType.Cube, a, new Vector3(0.05f, 0.05f, 0.5f), MatSpec.Glow(c, 6f), default, false);
             g.transform.rotation = Quaternion.LookRotation(b - a);
-            float t = 0, dur = Mathf.Max(0.12f, Vector3.Distance(a, b) * 0.02f);
+            float t = 0, dur = Mathf.Max(0.1f, Vector3.Distance(a, b) * 0.018f);
             while (t < 1)
             {
                 t += Dt / dur;
                 g.transform.position = Vector3.Lerp(a, b, t);
+                if (flash != null && t > 0.35f) Destroy(flash);
                 yield return null;
             }
+            if (flash != null) Destroy(flash);
             Destroy(g);
+            // small impact spark
+            var spark = Part(null, PrimitiveType.Sphere, b, Vector3.one * 0.15f, MatSpec.Glow(c, 4f), default, false);
+            yield return null;
+            Destroy(spark);
         }
 
         /// Resolves a shot (either side). Returns via coroutine.

@@ -42,19 +42,51 @@ public static class ClaudeBridge
         WriteStatus("loaded");
     }
 
-    /// Runtime-created materials need a real URP Lit material in the build (primitives get the
-    /// built-in pipeline material in players, which renders magenta under URP).
+    /// Runtime-created materials need real URP Lit material assets in the build (primitives get the
+    /// built-in pipeline material in players, which renders magenta under URP). One per shader variant set.
     static void EnsureAssets()
     {
-        const string path = "Assets/Resources/SD_BaseLit.mat";
-        if (AssetDatabase.LoadAssetAtPath<Material>(path) != null) return;
         var sh = Shader.Find("Universal Render Pipeline/Lit");
         if (sh == null) { WriteStatus("asset-error", "URP Lit shader not found"); return; }
         Directory.CreateDirectory(Path.Combine(Root, "Assets/Resources"));
+        bool made = false;
+        made |= MakeMat(sh, "SD_BaseLit", false, false);
+        made |= MakeMat(sh, "SD_BaseLitEmissive", true, false);
+        made |= MakeMat(sh, "SD_BaseLitTransparent", false, true);
+        made |= MakeMat(sh, "SD_BaseLitTransparentEmissive", true, true);
+        if (made) AssetDatabase.SaveAssets();
+    }
+
+    static bool MakeMat(Shader sh, string name, bool emissive, bool transparent)
+    {
+        string path = $"Assets/Resources/{name}.mat";
+        if (AssetDatabase.LoadAssetAtPath<Material>(path) != null) return false;
         var m = new Material(sh);
         m.SetFloat("_Smoothness", 0.15f);
+        if (emissive)
+        {
+            m.EnableKeyword("_EMISSION");
+            m.globalIlluminationFlags = MaterialGlobalIlluminationFlags.RealtimeEmissive;
+            m.SetColor("_EmissionColor", Color.white);
+            m.SetTexture("_EmissionMap", Texture2D.whiteTexture);
+        }
+        if (transparent)
+        {
+            m.SetFloat("_Surface", 1);
+            m.SetFloat("_Blend", 0);
+            m.SetFloat("_SrcBlend", (float)UnityEngine.Rendering.BlendMode.SrcAlpha);
+            m.SetFloat("_DstBlend", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetFloat("_SrcBlendAlpha", (float)UnityEngine.Rendering.BlendMode.One);
+            m.SetFloat("_DstBlendAlpha", (float)UnityEngine.Rendering.BlendMode.OneMinusSrcAlpha);
+            m.SetFloat("_ZWrite", 0);
+            m.SetOverrideTag("RenderType", "Transparent");
+            m.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            m.renderQueue = (int)UnityEngine.Rendering.RenderQueue.Transparent;
+            m.SetShaderPassEnabled("DepthOnly", false);
+            m.SetShaderPassEnabled("ShadowCaster", false);
+        }
         AssetDatabase.CreateAsset(m, path);
-        AssetDatabase.SaveAssets();
+        return true;
     }
 
     static void OnCompileStart(object _)
