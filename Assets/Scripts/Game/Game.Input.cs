@@ -112,7 +112,31 @@ namespace SpaceDefender
             camTarget.z = Mathf.Clamp(camTarget.z, -4, K.H + 1);
         }
 
+        void BlastPreview(Vector2Int c)
+        {
+            for (int x = -2; x <= 2; x++)
+                for (int z = -2; z <= 2; z++)
+                {
+                    var q = c + new Vector2Int(x, z);
+                    if (In(q) && Vector2.Distance(q, c) <= 1.51f) Marker(q, new Color(1f, 0.55f, 0.1f), 0.9f, 0.07f);
+                }
+        }
+
+        Vector2Int? lastHover;
+
         void UpdateHover()
+        {
+            UpdateHoverRay();
+            // redraw blast previews when the aimed tile changes
+            if (hover != lastHover)
+            {
+                lastHover = hover;
+                if (phase == Phase.Player && !busy && (mode == Mode.Grenade || (mode == Mode.Special && selected != null && selected.kind == UnitKind.Heavy)))
+                    RefreshHighlights();
+            }
+        }
+
+        void UpdateHoverRay()
         {
             hover = null;
             if (cam == null || Mouse.current == null || PointerOverUI()) return;
@@ -363,6 +387,7 @@ namespace SpaceDefender
                         foreach (var t in tiles)
                             if (Vector2.Distance(t.P, selected.P) <= r && t.fog != FogState.Unexplored)
                                 Marker(t.P, new Color(0.55f, 0.45f, 0.25f), 0.6f, 0.02f);
+                        if (hover.HasValue && Vector2.Distance(hover.Value, selected.P) <= r) BlastPreview(hover.Value);
                         break;
                     }
                 case Mode.Special:
@@ -371,6 +396,7 @@ namespace SpaceDefender
                         foreach (var t in tiles)
                             if (Vector2.Distance(t.P, selected.P) <= r && t.fog != FogState.Unexplored)
                                 Marker(t.P, selected.kind == UnitKind.Heavy ? new Color(0.7f, 0.35f, 0.2f) : new Color(0.3f, 0.8f, 0.9f), 0.5f, 0.02f);
+                        if (selected.kind == UnitKind.Heavy && hover.HasValue && Vector2.Distance(hover.Value, selected.P) <= r) BlastPreview(hover.Value);
                         break;
                     }
             }
