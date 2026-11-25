@@ -25,10 +25,11 @@
   </div>
   <script>
     var buildUrl = "Build";
+    var v = "?v=__VERSION__"; // cache-busting: changes on every publish
     var config = {
-      dataUrl: buildUrl + "/WebBuild.data.unityweb",
-      frameworkUrl: buildUrl + "/WebBuild.framework.js.unityweb",
-      codeUrl: buildUrl + "/WebBuild.wasm.unityweb",
+      dataUrl: buildUrl + "/WebBuild.data.unityweb" + v,
+      frameworkUrl: buildUrl + "/WebBuild.framework.js.unityweb" + v,
+      codeUrl: buildUrl + "/WebBuild.wasm.unityweb" + v,
       streamingAssetsUrl: "StreamingAssets",
       companyName: "tsripata",
       productName: "Space Defender",
@@ -36,7 +37,7 @@
     };
     var canvas = document.querySelector("#unity-canvas");
     var script = document.createElement("script");
-    script.src = buildUrl + "/WebBuild.loader.js";
+    script.src = buildUrl + "/WebBuild.loader.js" + v;
     script.onload = function () {
       createUnityInstance(canvas, config, function (p) {
         document.querySelector("#fill").style.width = (100 * p) + "%";
