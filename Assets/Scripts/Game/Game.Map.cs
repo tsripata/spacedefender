@@ -281,7 +281,7 @@ namespace SpaceDefender
             float H = h * K.Level;
 
             bool store = (style == Tex.Style.Brick || style == Tex.Style.Glass) && h >= 2;
-            float lightBoost = style == Tex.Style.Glass ? 1.4f : 1.6f;
+            float lightBoost = style == Tex.Style.Glass ? 0.75f : 1.5f;
             if (store)
             {
                 TPart(t, tr, PrimitiveType.Cube, new Vector3(0, 0.5f, 0), new Vector3(1f, 1f, 1f),
@@ -493,11 +493,20 @@ namespace SpaceDefender
             root.transform.position = UnitPos(u);
             root.AddComponent<Pick>().p = u.P;
             var col = root.AddComponent<BoxCollider>();
-            col.center = new Vector3(0, 0.45f, 0);
-            col.size = new Vector3(0.6f, 0.9f, 0.6f);
+            col.center = new Vector3(0, 0.6f, 0);
+            col.size = new Vector3(0.7f, 1.2f, 0.7f);
             var model = new GameObject("Model").transform;
             model.SetParent(root.transform, false);
             if (!u.Human) root.transform.rotation = Quaternion.Euler(0, 180, 0); // aliens face south at spawn
+
+            model.localScale = Vector3.one * (u.Human ? 1.35f : u.kind == UnitKind.Brood ? 1.1f : 1.3f);
+            // team ring on the ground (class colour for soldiers, red for aliens)
+            var ringCol = u.Human ? UnitColor(u.kind) : new Color(1f, 0.15f, 0.2f);
+            var ring = Part(root.transform, PrimitiveType.Cylinder, new Vector3(0, 0.025f, 0), new Vector3(0.78f, 0.006f, 0.78f),
+                new MatSpec { color = new Color(ringCol.r, ringCol.g, ringCol.b, 0.5f), emission = ringCol * 1.4f, transparent = true }, default, false);
+            ring.name = "Ring";
+            Part(root.transform, PrimitiveType.Cylinder, new Vector3(0, 0.03f, 0), new Vector3(0.62f, 0.007f, 0.62f),
+                new MatSpec { color = new Color(0.02f, 0.02f, 0.03f, 0.55f), transparent = true }, default, false);
 
             switch (u.kind)
             {
@@ -518,13 +527,13 @@ namespace SpaceDefender
         void BuildSoldier(Transform m, UnitKind k)
         {
             var accent = UnitColor(k);
-            var uniform = MatSpec.Of(new Color(0.24f, 0.27f, 0.22f), 0.2f);
-            var armor = MatSpec.Of(new Color(0.16f, 0.18f, 0.17f), 0.35f);
+            var uniform = MatSpec.Of(Color.Lerp(new Color(0.42f, 0.45f, 0.38f), accent, 0.18f), 0.2f);
+            var armor = MatSpec.Of(Color.Lerp(new Color(0.3f, 0.32f, 0.3f), accent, 0.55f), 0.45f);
             var boots = MatSpec.Of(new Color(0.08f, 0.07f, 0.06f), 0.3f);
             var skin = MatSpec.Of(new Color(0.85f, 0.66f, 0.52f), 0.3f);
-            var acc = new MatSpec { color = accent, emission = accent * 0.25f, smooth = 0.4f };
+            var acc = new MatSpec { color = accent, emission = accent * 0.6f, smooth = 0.4f };
             var gun = new MatSpec { color = new Color(0.1f, 0.1f, 0.11f), smooth = 0.5f, metal = 0.6f };
-            var visor = MatSpec.Glow(accent, 1.2f);
+            var visor = MatSpec.Glow(accent, 2.5f);
 
             // legs + boots
             for (int s = -1; s <= 1; s += 2)
@@ -579,8 +588,8 @@ namespace SpaceDefender
 
         void BuildCrawler(Transform m)
         {
-            var shell = new MatSpec { color = new Color(0.22f, 0.08f, 0.3f), smooth = 0.85f, metal = 0.2f };
-            var flesh = new MatSpec { color = new Color(0.35f, 0.12f, 0.4f), smooth = 0.6f };
+            var shell = new MatSpec { color = new Color(0.38f, 0.14f, 0.5f), smooth = 0.85f, metal = 0.2f };
+            var flesh = new MatSpec { color = new Color(0.55f, 0.2f, 0.6f), smooth = 0.6f };
             var glow = MatSpec.Glow(new Color(1f, 0.25f, 0.7f), 3f);
             Part(m, PrimitiveType.Sphere, new Vector3(0, 0.3f, -0.18f), new Vector3(0.42f, 0.3f, 0.5f), shell);
             Part(m, PrimitiveType.Sphere, new Vector3(0, 0.32f, 0.08f), new Vector3(0.3f, 0.24f, 0.3f), flesh);
@@ -601,8 +610,8 @@ namespace SpaceDefender
 
         void BuildSpitter(Transform m)
         {
-            var skin = new MatSpec { color = new Color(0.16f, 0.28f, 0.12f), smooth = 0.7f };
-            var dark = new MatSpec { color = new Color(0.1f, 0.14f, 0.08f), smooth = 0.5f };
+            var skin = new MatSpec { color = new Color(0.28f, 0.45f, 0.2f), smooth = 0.7f };
+            var dark = new MatSpec { color = new Color(0.17f, 0.24f, 0.13f), smooth = 0.5f };
             var acid = new MatSpec { color = new Color(0.4f, 1f, 0.2f, 0.85f), emission = new Color(0.4f, 1f, 0.2f) * 2.2f, transparent = true, smooth = 0.9f };
             for (int s = -1; s <= 1; s += 2)
             {
@@ -677,8 +686,8 @@ namespace SpaceDefender
             g.transform.position = pos;
             g.transform.rotation = Quaternion.identity;
             g.transform.localScale = scale;
-            var col = c; col.a = 0.55f;
-            g.GetComponent<Renderer>().sharedMaterial = Mat(new MatSpec { color = col, emission = c * 0.9f, transparent = true, smooth = 0.3f });
+            var col = c; col.a = 0.42f;
+            g.GetComponent<Renderer>().sharedMaterial = Mat(new MatSpec { color = col, emission = c * 0.45f, transparent = true, smooth = 0.3f });
             markers.Add(g);
             return g;
         }

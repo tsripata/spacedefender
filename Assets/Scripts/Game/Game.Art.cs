@@ -144,15 +144,15 @@ namespace SpaceDefender
             {
                 sun.transform.rotation = Quaternion.Euler(36, -38, 0);
                 sun.color = new Color(1f, 0.84f, 0.7f);
-                sun.intensity = 1.25f;
+                sun.intensity = 1.6f;
                 sun.shadows = LightShadows.Soft;
                 sun.shadowStrength = 0.85f;
             }
             RenderSettings.ambientMode = AmbientMode.Flat;
             var sh = new SphericalHarmonicsL2();
-            sh.AddAmbientLight(new Color(0.36f, 0.4f, 0.52f));
+            sh.AddAmbientLight(new Color(0.48f, 0.52f, 0.64f));
             RenderSettings.ambientProbe = sh;
-            RenderSettings.ambientLight = new Color(0.36f, 0.4f, 0.52f);
+            RenderSettings.ambientLight = new Color(0.48f, 0.52f, 0.64f);
 
             if (cam != null)
             {

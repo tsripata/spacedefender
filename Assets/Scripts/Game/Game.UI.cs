@@ -284,7 +284,7 @@ namespace SpaceDefender
             {
                 if (!u.alive || u.go == null) continue;
                 if (!u.Human && !Visible(u.P)) continue;
-                var sp = cam.WorldToScreenPoint(u.go.transform.position + Vector3.up * 1.15f);
+                var sp = cam.WorldToScreenPoint(u.go.transform.position + Vector3.up * 1.5f);
                 if (sp.z < 0) continue;
                 var gp = new Vector2(sp.x / s, (Screen.height - sp.y) / s);
                 float bw = Mathf.Min(60, u.maxHp * 9);

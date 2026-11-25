@@ -167,7 +167,7 @@ namespace SpaceDefender
             var rnd = new System.Random(1000 + (int)s * 31 + variant * 7);
             // per-window lit flags
             var lit = new bool[16];
-            for (int i = 0; i < lit.Length; i++) lit[i] = rnd.NextDouble() < (s == Style.Glass ? 0.45 : 0.5);
+            for (int i = 0; i < lit.Length; i++) lit[i] = rnd.NextDouble() < (s == Style.Glass ? 0.3 : 0.5);
             var warm = new Color(1f, 0.82f, 0.5f);
             var cool = new Color(0.75f, 0.88f, 1f);
 
@@ -205,10 +205,10 @@ namespace SpaceDefender
                                 bool mullion = x % 32 < 3 || y % 64 < 3;
                                 bool spandrel = y % 64 < 14;
                                 float grad = (y % 64) / 64f;
-                                c = Color.Lerp(new Color(0.12f, 0.2f, 0.3f), new Color(0.35f, 0.48f, 0.62f), grad * 0.7f + Fbm(x, y, 0.03f) * 0.3f);
+                                c = Color.Lerp(new Color(0.22f, 0.32f, 0.44f), new Color(0.5f, 0.62f, 0.75f), grad * 0.7f + Fbm(x, y, 0.03f) * 0.3f);
                                 if (spandrel) c = new Color(0.22f, 0.25f, 0.3f);
                                 if (mullion) c = new Color(0.65f, 0.68f, 0.72f);
-                                if (!mullion && !spandrel && lit[(col + rowp * 4 + variant * 5) % 16]) { e = cool * 0.9f; c = Color.Lerp(c, cool * 0.5f, 0.4f); }
+                                if (!mullion && !spandrel && lit[(col + rowp * 4 + variant * 5) % 16]) { e = new Color(0.85f, 0.9f, 1f) * 0.7f; c = Color.Lerp(c, cool * 0.6f, 0.3f); }
                                 break;
                             }
                         case Style.Industrial:
