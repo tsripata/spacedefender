@@ -29,5 +29,12 @@ jobs:
       - uses: actions/upload-pages-artifact@v4
         with:
           path: docs
+      # GitHub Pages occasionally returns transient 5xx errors: retry once after a pause.
       - id: deployment
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+      - if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+      - id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
