@@ -108,11 +108,24 @@ namespace SpaceDefender
         // ---------- primitives ----------
 
         /// A primitive part without collider.
+        static readonly Dictionary<PrimitiveType, Mesh> primMeshes = new Dictionary<PrimitiveType, Mesh>();
+
+        /// Built-in primitive meshes, fetched once (avoids adding a collider to every part).
+        static Mesh PrimMesh(PrimitiveType type)
+        {
+            if (primMeshes.TryGetValue(type, out var m) && m != null) return m;
+            var tmp = GameObject.CreatePrimitive(type);
+            m = tmp.GetComponent<MeshFilter>().sharedMesh;
+            DestroyImmediate(tmp);
+            primMeshes[type] = m;
+            return m;
+        }
+
         public GameObject Part(Transform parent, PrimitiveType type, Vector3 pos, Vector3 scale, MatSpec spec, Vector3 euler = default, bool shadows = true)
         {
-            var g = GameObject.CreatePrimitive(type);
-            var col = g.GetComponent<Collider>();
-            if (col != null) DestroyImmediate(col);
+            var g = new GameObject(type.ToString());
+            g.AddComponent<MeshFilter>().sharedMesh = PrimMesh(type);
+            g.AddComponent<MeshRenderer>();
             g.transform.SetParent(parent, false);
             g.transform.localPosition = pos;
             g.transform.localRotation = Quaternion.Euler(euler);

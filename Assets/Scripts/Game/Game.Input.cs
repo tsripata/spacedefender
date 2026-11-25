@@ -390,10 +390,7 @@ namespace SpaceDefender
 
         IEnumerator Lob(Vector3 a, Vector3 b, Color c)
         {
-            var g = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-            DestroyImmediate(g.GetComponent<Collider>());
-            g.GetComponent<Renderer>().sharedMaterial = Mat(new MatSpec { color = c, emission = new Color(1f, 0.4f, 0.1f) * 1.5f, smooth = 0.5f });
-            g.transform.localScale = Vector3.one * 0.16f;
+            var g = Part(null, PrimitiveType.Sphere, a, Vector3.one * 0.16f, new MatSpec { color = c, emission = new Color(1f, 0.4f, 0.1f) * 1.5f, smooth = 0.5f });
             float t = 0, h = 1.5f + Vector3.Distance(a, b) * 0.2f;
             while (t < 1)
             {
